@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import ResultDisplay from "./components/ResultDisplay";
+import ErrorModal from "./components/ErrorModal";
 
 export default function App() {
   const [url, setUrl] = useState("");
@@ -37,7 +38,7 @@ export default function App() {
           setError("模型發生異常，請稍候");
         } else if (message.includes("download failure")) {
           setManualMode(true);
-          setError("錯誤：無法自動擷取該網址內容，請自行輸入文章內文");
+          setError("無法自動擷取該網址內容，請自行輸入文章內文");
         } else if (message.includes("Internet connection")) {
           setError("請檢查網路連線後再重新試一次");
         } else if (message.includes("invalid url")) {
@@ -55,11 +56,17 @@ export default function App() {
         setManualMode(false);
         setLoading(false);
       }
-    } catch (err) {
-      setError("An error occurred at the server.");
+    } catch {
+      setError("伺服器連線發生問題，請稍候再試");
       setLoading(false);
     }
   };
+
+  // Dismiss the popup but keep the manual-input area open when the error
+  // is one the user can recover from by pasting the article themselves.
+  const dismissError = useCallback(() => {
+    setError(null);
+  }, []);
 
   const goToMain = () => {
     setUrl("");
@@ -74,50 +81,53 @@ export default function App() {
   return (
     <main>
       <header id="header" className="flex column align-center">
+        <span className="eyebrow">AI 健康新聞檢測</span>
         <h1 className="bold f3-5rem">健康醫療類假新聞辨別平台</h1>
-        <p className="bold f3rem">Health Misinformation Detector</p>
+        <p className="subtitle f1-5rem">Health Misinformation Detector</p>
       </header>
 
-      <div id="url-input-div" className="flex column">
-        <label
-          htmlFor="url-input-field"
-          className="green-text f1-5rem block-label"
-        >
-          請在下方輸入新聞網址
-        </label>
-        <div id="url-input-row" className="flex row align-start w100percent">
-          <input
-            type="text"
-            id="url-input-field"
-            className="input-field f1-5rem"
-            placeholder="https://example.com/news-article"
-            value={url}
-            disabled={loading}
-            onChange={(e) => setUrl(e.target.value)}
-          />
-          <button
-            type="button"
-            className="analyze-button f1-5rem bold"
-            id="url-submit-button"
-            onClick={handleSubmit}
-            disabled={loading}
-          >
-            <img src="/images/white-analyze.svg" alt="" />
-            分析文章
-          </button>
-        </div>
-      </div>
+      <section className="panel" aria-labelledby="analyze-heading">
+        <h2 id="analyze-heading" className="visually-hidden">
+          分析文章
+        </h2>
 
-      {error && (
-        <div
-          className="flex column url-error-div"
-          role="alert"
-          aria-live="assertive"
-        >
-          <p className="error f1-5rem">{error}</p>
+        <div id="url-input-div" className="flex column">
+          <label
+            htmlFor="url-input-field"
+            className="dark-green-text f1-5rem bold block-label"
+          >
+            請在下方輸入新聞網址
+          </label>
+          <div id="url-input-row" className="flex row align-start w100percent">
+            <input
+              type="text"
+              id="url-input-field"
+              className="input-field f1-5rem"
+              placeholder="https://example.com/news-article"
+              value={url}
+              disabled={loading}
+              onChange={(e) => setUrl(e.target.value)}
+            />
+            <button
+              type="button"
+              className="analyze-button f1-5rem bold"
+              id="url-submit-button"
+              onClick={handleSubmit}
+              disabled={loading}
+            >
+              <img src="/images/white-analyze.svg" alt="" />
+              分析文章
+            </button>
+          </div>
+        </div>
+
+        {manualMode && (
           <div id="manual-input-row" className="flex column w100percent">
-            <label htmlFor="manual-input-field" className="visually-hidden">
-              請輸入文章內文
+            <label
+              htmlFor="manual-input-field"
+              className="dark-green-text f1-5rem bold block-label"
+            >
+              或直接貼上文章內文
             </label>
             <textarea
               id="manual-input-field"
@@ -125,7 +135,7 @@ export default function App() {
               value={manualInput}
               disabled={loading}
               onChange={(e) => setManualInput(e.target.value)}
-              className="input-field"
+              className="input-field textarea-field"
             />
             <button
               type="button"
@@ -137,40 +147,53 @@ export default function App() {
               分析文章
             </button>
           </div>
-        </div>
-      )}
+        )}
 
-      <fieldset id="model-selection" className="flex row align-center">
-        <legend className="f1-5rem medium">選取模型</legend>
-        <span className="model-choice-option">
-          <input
-            type="radio"
-            id="model-traditional"
-            className="model-choice medium"
-            name="model"
-            checked={model === "traditional"}
-            onChange={() => setModel("traditional")}
-          />
-          <label htmlFor="model-traditional">邏輯回歸（預設）</label>
-        </span>
-        <span className="model-choice-option">
-          <input
-            type="radio"
-            id="model-deep-learning"
-            className="model-choice medium"
-            name="model"
-            checked={model === "deep_leaning"}
-            onChange={() => setModel("deep_leaning")}
-          />
-          <label htmlFor="model-deep-learning">深度學習</label>
-        </span>
-      </fieldset>
+        <fieldset id="model-selection">
+          <legend className="f1-5rem bold dark-green-text">選取模型</legend>
+          <div className="model-choice-list flex row">
+            <span className="model-choice-option">
+              <input
+                type="radio"
+                id="model-traditional"
+                className="model-choice"
+                name="model"
+                checked={model === "traditional"}
+                disabled={loading}
+                onChange={() => setModel("traditional")}
+              />
+              <label htmlFor="model-traditional">邏輯回歸（預設）</label>
+            </span>
+            <span className="model-choice-option">
+              <input
+                type="radio"
+                id="model-deep-learning"
+                className="model-choice"
+                name="model"
+                checked={model === "deep_leaning"}
+                disabled={loading}
+                onChange={() => setModel("deep_leaning")}
+              />
+              <label htmlFor="model-deep-learning">深度學習</label>
+            </span>
+          </div>
+        </fieldset>
+      </section>
 
-      <p aria-live="polite">{loading && "載入中..."}</p>
-      <br />
+      <p className="loading-row" aria-live="polite">
+        {loading && (
+          <>
+            <span className="spinner" aria-hidden="true" />
+            分析中，請稍候...
+          </>
+        )}
+      </p>
+
       {result !== null && (
         <ResultDisplay result={result} onTriggerParent={goToMain}></ResultDisplay>
       )}
+
+      <ErrorModal message={error} onClose={dismissError} />
     </main>
   );
 }
