@@ -31,9 +31,23 @@ export default function App() {
 
       const data = await response.json();
 
-      if (!response.ok && data.error.includes("manually enter")) {
-        setManualMode(true);
-        setError("錯誤：無法自動擷取該網址內容，請自行輸入文章內文");
+      if (!response.ok) {
+        const message = data.error || "";
+        if (message.includes("model selection error")) {
+          setError("模型發生異常，請稍候");
+        } else if (message.includes("download failure")) {
+          setManualMode(true);
+          setError("錯誤：無法自動擷取該網址內容，請自行輸入文章內文");
+        } else if (message.includes("Internet connection")) {
+          setError("請檢查網路連線後再重新試一次");
+        } else if (message.includes("invalid url")) {
+          setManualMode(true);
+          setError("請再次確認您提供的連結是否正確，或手動輸入文章內容");
+        } else if (message.includes("can't process article text")) {
+          setError("很抱歉，文章內容無法被處理");
+        } else {
+          setError("發生未知錯誤，請稍候再試");
+        }
         setLoading(false);
       } else {
         setResult(data);
